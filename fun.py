@@ -167,12 +167,18 @@ def is_has_component(emoji: str) -> bool:
 
 
 def get_original_emoji(emoji_group: str, emoji_list: dict, emoji: str) -> Union[str, Exception]:
-    emoji_name = emoji_list[emoji_group][emoji]['name']
-    original_emoji_name = emoji_name.split(':')[0]
-    for (i_emoji, i_emoji_obj) in emoji_list[emoji_group].items():
-        if i_emoji_obj['name'] == original_emoji_name:
-            return i_emoji
-    return Exception('Could not get original emoji')
+    components = ['🏻', '🏼', '🏽', '🏾', '🏿', '🦰', '🦱', '🦳', '🦲']
+    if get_emoji_from_u_code('200d') not in emoji:
+        for component in components:
+            if component in emoji:
+                return emoji.replace(component, '')
+    else:
+        emoji_name = emoji_list[emoji_group][emoji]['name']
+        original_emoji_name = emoji_name.split(':')[0]
+        for (i_emoji, i_emoji_obj) in emoji_list[emoji_group].items():
+            if i_emoji_obj['name'] == original_emoji_name:
+                return i_emoji
+        return Exception('Could not get original emoji')
 
 
 def convert_to_picker_emoji_list(emoji_list: dict) -> dict:
