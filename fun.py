@@ -1,12 +1,35 @@
 import pathlib
 import re
+import emoji as emoji_lib
 from typing import Union
 
-import emoji as emoji_lib
+
+def get_emoji_obj(emoji: str, emoji_list: dict):
+    for (emoji_list_group, emoji_list_group_list) in emoji_list.items():
+        if emoji_list_group_list.get(emoji) is not None:
+            return emoji_list_group_list[emoji], emoji_list_group
+    return None
+
+
+def get_emoji_by_name(emoji_name: str, emoji_list: dict) -> Union[tuple, None]:
+    for (emoji_list_group, emoji_list_group_list) in emoji_list.items():
+        for (emoji, emoji_obj) in emoji_list_group_list.items():
+            if emoji_obj['name'] == emoji_name:
+                return emoji, emoji_obj
+    return None
+
+
+def is_emoji(emoji: str, emoji_list: dict) -> bool:
+    emoji_obj = get_emoji_obj(emoji, emoji_list)[0]
+    if emoji_obj is None:
+        return False
+    if emoji_obj['type'] == 'fully-qualified':
+        return True
+    return False
 
 
 def get_emoji_u_code(emoji: str) -> Union[str, bool]:
-    if len(emoji) == 0 or not emoji_lib.is_emoji(emoji):
+    if len(emoji) == 0:
         return False
 
     u_code = ''
@@ -61,7 +84,8 @@ def get_emoji_local_name(locals: list, emoji: str) -> list:
                 local_name.append(alias)
 
         for local in locals:
-            if emoji_lib.EMOJI_DATA[emoji].get(local) is not None and emoji_lib.EMOJI_DATA[emoji][local] != '' and emoji_lib.EMOJI_DATA[emoji][local] is not None:
+            if emoji_lib.EMOJI_DATA[emoji].get(local) is not None and emoji_lib.EMOJI_DATA[emoji][local] != '' and \
+                    emoji_lib.EMOJI_DATA[emoji][local] is not None:
                 name = re.search(r':(.*):', emoji_lib.EMOJI_DATA[emoji][local]).group(1).strip()
                 local_name.append(name)
 
@@ -148,19 +172,49 @@ def get_zwj_emoji_list(emoji_zwj_file: pathlib.Path):
     return zwj_emoji_list
 
 
-def clean_zwj_emoji_from_emoji_list(emoji_list: dict, zwj_emoji_list: dict, exclude_groups: list = None):
+def clean_zwj_emoji_from_emoji_list(emoji_list: dict, zwj_emoji_list: dict, exclude_groups: list = None, exclude_emojis: list = None):
     for (group_name, group_emoji_list) in zwj_emoji_list.items():
         if exclude_groups is not None and group_name in exclude_groups:
             continue
+
         for (emoji, emoji_obj) in group_emoji_list.items():
+            if len(emoji_obj['name'].split(':')[0]) > 1:
+                original_name = emoji_obj['name'].split(':')[0]
+                original_emoji = get_emoji_by_name(original_name, zwj_emoji_list)
+                if original_emoji is not None:
+                    original_emoji, original_emoji_obj = original_emoji
+                    is_exist = False
+                    for exclude_emoji in exclude_emojis:
+                        if exclude_emoji in original_emoji or exclude_emoji == original_emoji:
+                            is_exist = True
+                            continue
+                    if is_exist:
+                        continue
+
+            is_exist = False
+            for exclude_emoji in exclude_emojis:
+                if exclude_emoji in emoji or exclude_emoji == emoji:
+                    is_exist = True
+                    continue
+
+            if is_exist:
+                continue
+
             for (emoji_list_group, emoji_list_group_list) in emoji_list.items():
                 if emoji_list_group_list.get(emoji) is not None:
                     del emoji_list[emoji_list_group][emoji]
                     break
 
 
-def is_has_component(emoji: str) -> bool:
+def is_has_component(emoji: str, emoji_list: dict) -> Union[Exception, bool]:
     components = ['🏻', '🏼', '🏽', '🏾', '🏿', '🦰', '🦱', '🦳', '🦲']
+    emoji_obj, emoji_group = get_emoji_obj(emoji, emoji_list)
+    if emoji_obj is None:
+        return Exception('Could not get emoji object')
+    elif emoji_group == 'food_drink' or emoji_group == 'animals_nature' or emoji_group == 'travel_places' or emoji_group == 'activities' or emoji_group == 'objects' or emoji_group == 'symbols' or emoji_group == 'flags':
+        return False
+    elif len(emoji_obj['name'].split(':')) > 1:
+        return True
     for component in components:
         if emoji.find(component) != -1:
             return True
@@ -168,17 +222,42 @@ def is_has_component(emoji: str) -> bool:
 
 def get_original_emoji(emoji_group: str, emoji_list: dict, emoji: str) -> Union[str, Exception]:
     components = ['🏻', '🏼', '🏽', '🏾', '🏿', '🦰', '🦱', '🦳', '🦲']
-    if get_emoji_from_u_code('200d') not in emoji:
+    emoji_name = emoji_list[emoji_group][emoji]['name']
+
+    if get_emoji_from_u_code('200d') not in emoji or emoji_name.split(':')[0] == 1:
         for component in components:
             if component in emoji:
-                return emoji.replace(component, '')
-    else:
-        emoji_name = emoji_list[emoji_group][emoji]['name']
-        original_emoji_name = emoji_name.split(':')[0]
-        for (i_emoji, i_emoji_obj) in emoji_list[emoji_group].items():
-            if i_emoji_obj['name'] == original_emoji_name:
-                return i_emoji
+                original_emoji = emoji.replace(component, '')
+                if is_emoji(original_emoji, emoji_list):
+                    if len(original_emoji) == 1 and len(
+                            get_emoji_obj(original_emoji, emoji_list)[0]['name'].split(':')) == 1:
+                        return original_emoji
+                    elif len(get_emoji_obj(original_emoji, emoji_list)[0]['name'].split(':')) > 1:
+                        original_emoji_name = get_emoji_obj(original_emoji, emoji_list)[0]['name'].split(':')[0]
+                        original_emoji = get_emoji_by_name(original_emoji_name, emoji_list)[0]
+                        if original_emoji is None:
+                            return Exception('Could not get original emoji')
+                        else:
+                            return original_emoji
+                    return original_emoji
+                elif len(original_emoji) == 1 and is_emoji(original_emoji + get_emoji_from_u_code('fe0f'), emoji_list):
+                    return original_emoji + get_emoji_from_u_code('fe0f')
+                else:
+                    return Exception('Could not get original emoji')
+        if len(get_emoji_obj(emoji, emoji_list)[0]['name'].split(':')) > 1:
+            original_emoji_name = get_emoji_obj(emoji, emoji_list)[0]['name'].split(':')[0]
+            original_emoji = get_emoji_by_name(original_emoji_name, emoji_list)[0]
+            if original_emoji is None:
+                return Exception('Could not get original emoji')
+            else:
+                return original_emoji
         return Exception('Could not get original emoji')
+    else:
+        original_emoji_name = emoji_name.split(':')[0]
+        result = get_emoji_by_name(original_emoji_name, emoji_list)
+        if result is None:
+            return Exception('Could not get original emoji')
+        return result[0]
 
 
 def convert_to_picker_emoji_list(emoji_list: dict) -> dict:
@@ -202,7 +281,7 @@ def convert_to_picker_emoji_list(emoji_list: dict) -> dict:
 
             # If it has skin tone
             appended_v = False
-            if is_has_component(emoji):
+            if is_has_component(emoji, emoji_list):
                 original_emoji = get_original_emoji(emoji_list_group, emoji_list, emoji)
 
                 if original_emoji is Exception:

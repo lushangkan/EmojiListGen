@@ -27,10 +27,14 @@ if __name__ == '__main__':
     zwj_emoji_list = fun.get_zwj_emoji_list(emoji_zwj_file)
     # Clean zwj emoji from emoji list
     print('Cleaning zwj emoji from emoji list...')
-    fun.clean_zwj_emoji_from_emoji_list(emoji_list, zwj_emoji_list, ['other'])
+    fun.clean_zwj_emoji_from_emoji_list(emoji_list, zwj_emoji_list, ['other'],
+                                        ['🧑‍🎄', '🧑🏻‍🎄', '🧑🏼‍🎄', '🧑🏽‍🎄', '🧑🏾‍🎄', '🧑🏿‍🎄', '🧑‍⚕️', '🧑‍⚖️', '🧑‍✈️', '🧑‍🌾',
+                                         '🧑‍🍳', '🧑‍🍼', '🧑‍🎓', '🧑‍🎤', '🧑‍🎨', '🧑‍🏫', '🧑‍🏭', '🧑‍💻', '🧑‍💼', '🧑‍🔧', '🧑‍🔬',
+                                         '🧑‍🚀', '🧑‍🚒', '🧑‍🦯', '🧑‍🦼', '🧑‍🦽', '🧜‍♀️', '🧜‍♂️'])
     # Convert to picker emoji list
     print('Converting to picker emoji list...')
     picker_emoji_list = fun.convert_to_picker_emoji_list(emoji_list)
 
     print('Saving emojis...')
     json.dump(picker_emoji_list, open('emoji_categories.json', 'w', encoding='utf-8'), ensure_ascii=False, indent=4)
+
